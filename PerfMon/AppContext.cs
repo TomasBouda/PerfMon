@@ -6,7 +6,7 @@ using System.Windows.Forms;
 
 namespace PerfMon
 {
-	public partial class MainForm : Form
+	public class AppContext : ApplicationContext
 	{
 		// https://msdn.microsoft.com/en-us/library/system.drawing.icon.fromhandle(v=vs.110).aspx
 		[DllImport("user32.dll", CharSet = CharSet.Auto)]
@@ -14,27 +14,61 @@ namespace PerfMon
 
 		public PerformanceCounter cpu = new PerformanceCounter("Processor", "% Processor Time", "_Total");
 		public PerformanceCounter ram = new PerformanceCounter("Memory", "% Committed Bytes In Use", null);
+		/// <summary>
+		/// https://support.microsoft.com/en-us/help/310067/-disk-time-may-exceed-100-percent-in-the-performance-monitor-mmc
+		/// </summary>
 		public PerformanceCounter disc = new PerformanceCounter("PhysicalDisk", "% Disk Time", "_Total");
 
-		private Timer timer = new Timer();
+		private NotifyIcon TrayIcon { get; set; }
+		private ContextMenuStrip TrayIconContextMenu { get; set; }
+		private Timer _timer = new Timer();
 
-		public MainForm()
+		public AppContext()
 		{
 			InitializeComponent();
 
-			timer.Tick += Timer_Tick;
-			timer.Interval = 500;
-			timer.Enabled = true;
+			_timer.Tick += Timer_Tick;
+			_timer.Interval = 750;
+			_timer.Enabled = true;
+		}
+
+		private void InitializeComponent()
+		{
+			TrayIcon = new NotifyIcon();
+			TrayIcon.Visible = true;
+
+			TrayIconContextMenu = new ContextMenuStrip();
+			var _closeMenuItem = new ToolStripMenuItem();
+			var _opemTMMenuItem = new ToolStripMenuItem();
+			TrayIconContextMenu.SuspendLayout();
+
+			this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] { _opemTMMenuItem, _closeMenuItem });
+			this.TrayIconContextMenu.Name = "cm";
+			this.TrayIconContextMenu.Size = new Size(153, 70);
+
+			_closeMenuItem.Name = "miClose";
+			_closeMenuItem.Size = new Size(152, 22);
+			_closeMenuItem.Text = "Exit";
+			_closeMenuItem.Click += new EventHandler(this.CloseMenuItem_Click);
+
+			_opemTMMenuItem.Name = "miOpenTM";
+			_opemTMMenuItem.Size = new Size(152, 22);
+			_opemTMMenuItem.Text = "Open taskmgr";
+			_opemTMMenuItem.Click += new EventHandler((o, ea) => { Process.Start("taskmgr"); });
+
+			TrayIconContextMenu.ResumeLayout(false);
+			TrayIcon.ContextMenuStrip = TrayIconContextMenu;
 		}
 
 		#region Main Methods
 		public void ShowVals()
 		{
-			int discVal = Convert.ToInt32(disc.NextValue());
 			int cpuVal = Convert.ToInt32(cpu.NextValue());
 			int ramVal = Convert.ToInt32(ram.NextValue());
+			int discVal = Convert.ToInt32(disc.NextValue()).Clamp(0, 100);
 
-			ni.Text = $"CPU: {cpuVal}% {Environment.NewLine}RAM: {ramVal}% {Environment.NewLine}DISC: {discVal}%";
+
+			TrayIcon.Text = $"CPU: {cpuVal}% {Environment.NewLine}RAM: {ramVal}% {Environment.NewLine}DISC: {discVal}%";
 			DrawIco(cpuVal, ramVal, discVal);
 			//DrawIco(70, 60, 50);
 		}
@@ -44,7 +78,7 @@ namespace PerfMon
 			int width = 100;
 			int height = 100;
 			int border = 5;
-			int barWidth = (width - border) / 3;
+			int barWidth = (width - border * 2) / 3;
 
 			using (Bitmap bmp = new Bitmap(width, height))
 			{
@@ -59,7 +93,10 @@ namespace PerfMon
 					DrawIconBorder(graphic, width, height, border);
 
 					var handle = bmp.GetHicon();
-					ni.Icon = Icon.FromHandle(handle);
+					using (var icon = Icon.FromHandle(handle))
+					{
+						TrayIcon.Icon = icon;
+					}
 					DestroyIcon(handle);
 				}
 			}
@@ -72,26 +109,30 @@ namespace PerfMon
 			graphic.FillRectangle(Brushes.White, 0, height - borderThickness, width, borderThickness);
 			graphic.FillRectangle(Brushes.Gray, 0, 0, borderThickness, height);
 		}
+
+		private void Close()
+		{
+			_timer.Stop();
+			TrayIcon.Visible = false;
+			TrayIcon.Dispose();
+
+			Application.Exit();
+		}
+
 		#endregion
 
 		#region Event Handlers
+
 		public void Timer_Tick(System.Object sender, EventArgs e)
 		{
 			ShowVals();
 		}
 
-		private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+		private void CloseMenuItem_Click(object sender, EventArgs e)
 		{
-			timer.Stop();
-			ni.Dispose();
-
-			Application.Exit();
+			Close();
 		}
 
-		private void openTaskmgrToolStripMenuItem_Click(object sender, EventArgs e)
-		{
-			Process.Start("taskmgr");
-		}
 		#endregion
 	}
 }

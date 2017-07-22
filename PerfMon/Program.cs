@@ -11,9 +11,6 @@ namespace PerfMon
 		[STAThread]
 		static void Main()
 		{
-			Application.EnableVisualStyles();
-			Application.SetCompatibleTextRenderingDefault(false);
-
 			bool result;
 			var mutex = new System.Threading.Mutex(true, "PerfMon_AppId", out result);
 
@@ -24,8 +21,9 @@ namespace PerfMon
 			}
 			else
 			{
-				var form = new MainForm();
-				Application.Run();
+				Application.EnableVisualStyles();
+				Application.SetCompatibleTextRenderingDefault(false);
+				Application.Run(new AppContext());
 				GC.KeepAlive(mutex);
 			}
 		}
