@@ -93,10 +93,7 @@ namespace PerfMon
 					DrawIconBorder(graphic, width, height, border);
 
 					var handle = bmp.GetHicon();
-					using (var icon = Icon.FromHandle(handle))
-					{
-						TrayIcon.Icon = icon;
-					}
+					TrayIcon.Icon = Icon.FromHandle(handle);
 					DestroyIcon(handle);
 				}
 			}
